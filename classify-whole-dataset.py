@@ -3,7 +3,7 @@ CUDA_VISIBLE_DEVICES=3 python classify-whole-dataset.py
 
  --traindataroot  ./datasets/APTOS2019/train --testdataroot ./datasets/APTOS2019/test  --train_bs 8 --test_bs 64  --im_size 256 256  --datachannel 3  --nclasses 5  --model ResNetAP  --net_depth 18  --norm_type batch
 
-CUDA_VISIBLE_DEVICES=3 python classify-whole-dataset.py --traindataroot  ./datasets/APTOS2019/aptosbegin10w-IPC50 --testdataroot ./datasets/APTOS2019/test  --train_bs 8 --test_bs 64  --im_size 256 256  --datachannel 3  --nclasses 5  --model ResNetAP  --net_depth 18  --norm_type instance  --epochs 1000  --use_basic_aug  --use_rrc_aug  --rrc_size 224  --use_mixup
+CUDA_VISIBLE_DEVICES=3 python classify-whole-dataset.py --traindataroot  ./datasets/APTOS2019/aptosbegin10w-IPC50 --testdataroot ./datasets/APTOS2019/test  --use_balance --balance_method undersampling --train_bs 8 --test_bs 64  --im_size 256 256  --datachannel 3  --nclasses 5  --model ResNetAP  --net_depth 18  --norm_type instance  --epochs 1000  --use_basic_aug  --use_rrc_aug  --rrc_size 224  --use_mixup
 """
 import os.path
 import models
@@ -365,6 +365,10 @@ if __name__=='__main__':
     parser.add_argument('--traindataroot', type=str, default='./datasets/APTOS2019/train')
     parser.add_argument('--testdataroot', type=str, default='./datasets/APTOS2019/test')
     parser.add_argument('--valdataroot', type=str, default='./datasets/APTOS2019/validation')
+    # dataset balance setting
+    parser.add_argument('--use_balance', action='store_true', help='use balanced dataset or not')
+    parser.add_argument('--balance_method', type=str, default='None', choices=['None', 'undersampling'])
+    #
     parser.add_argument('--train_bs', type=int, default=8, help='train batch size')
     parser.add_argument('--test_bs', type=int, default=64, help='test batch size')
     parser.add_argument('--im_size', type=int, nargs="+", default=[256, 256])  # '+' == 1 or more; '*' == 0 or more; '?' == 0 or 1.
@@ -401,7 +405,8 @@ if __name__=='__main__':
 
     # get datasets
     traindataset = utils.get_train_dataset(args, train_transform=train_transform)
-    testdataset = utils.get_test_dataset(args, test_transform=test_transform)
+    testdataset = utils.get_test_dataset(args, test_transform=test_transform, use_balance=args.use_balance, balance_method=args.balance_method)
+    print(f"train dataset size: {len(traindataset)}, test dataset size: {len(testdataset)}")
 
     # mixup aug setting
     cutmix = v2.CutMix(num_classes=args.nclasses)

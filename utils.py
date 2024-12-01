@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import models
 import os
@@ -214,6 +215,50 @@ def transform(size=-1, augment=False, rrc=True, rrc_size=-1, normalize=True,):
     return train_transform, test_transform
 
 
+class CustomSubset(torch.utils.data.Subset):
+    '''A custom subset class'''
+    def __init__(self, dataset, indices, trans=None):
+        super().__init__(dataset, indices)
+        self.targets = dataset.targets  # 保留targets属性
+        self.classes = dataset.classes  # 保留classes属性
+        self.trans = trans
+
+    def __getitem__(self, idx):
+        x, y = self.dataset[self.indices[idx]]
+        if self.trans:
+            x = self.trans(x)
+        return x, y
+
+    def __len__(self):
+        return len(self.indices)
+
+
+def get_undersample_subset(dataset, transform):
+    """
+    欠采样获取类平衡数据集
+    Args:
+        dataset (): 原（不平衡）数据集
+
+    Returns (): 类平衡之后的数据集
+
+    """
+    # 获取各类样本的idx
+    class_indices = []
+    for class_idx in range(len(dataset.classes)):
+        class_indices.append(np.where(np.array(dataset.targets) == class_idx)[0])
+
+    # 最小数量
+    min_samples = min([len(indices) for indices in class_indices])
+
+    # 创建平衡的索引列表
+    balanced_indices = []
+    for indices in class_indices:
+        balanced_indices.extend(np.random.choice(indices, min_samples, replace=False).tolist())
+
+    # 使用CustomSubset创建平衡的数据集子集
+    balanced_dataset = CustomSubset(dataset, balanced_indices, trans=transform)
+
+    return balanced_dataset
 
 def get_train_dataset(args, **kwargs):
     traindataroot = args.traindataroot
@@ -226,9 +271,9 @@ def get_train_dataset(args, **kwargs):
         # train_transforms = transforms.Compose([transforms.Resize(size),
         #                                        transforms.ToTensor(),
         #                                        transforms.Normalize()])
-        traindataset = datasets.ImageFolder(traindataroot, transform=kwargs['train_transform'])
+        trainset = datasets.ImageFolder(traindataroot, transform=kwargs['train_transform'])
 
-        return traindataset
+        return trainset
 
     raise FileNotFoundError
 
@@ -246,10 +291,17 @@ def get_test_dataset(args, **kwargs):
         #                                       transforms.Normalize([0.35667878, 0.2302266, 0.14908062],
         #                                                            [0.22803271, 0.15399377, 0.10381984])])
 
+        if kwargs['use_balance']:
+            if kwargs['balance_method'] == 'undersampling':
+                testset = get_undersample_subset(datasets.ImageFolder(testdataroot), kwargs['test_transform'])
 
-        testdataset = datasets.ImageFolder(testdataroot, transform=kwargs['test_transform'])
+            else:
+                raise NotImplementedError
 
-        return testdataset
+        else:
+            testset = datasets.ImageFolder(testdataroot, transform=kwargs['test_transform'])
+
+        return testset
 
     raise FileNotFoundError
 
@@ -265,9 +317,9 @@ def get_val_dataset(args, **kwargs):
                                              transforms.ToTensor(),
                                              transforms.Normalize([0.35806048, 0.22751328, 0.14604147],
                                                                   [0.2311621, 0.15450972, 0.10365705])])
-        valdataset = datasets.ImageFolder(valdataroot, transform=val_transforms)
+        valset = datasets.ImageFolder(valdataroot, transform=val_transforms)
 
-        return valdataset
+        return valset
 
     raise FileNotFoundError
 
