@@ -215,12 +215,15 @@ def transform(size=-1, augment=False, rrc=True, rrc_size=-1, normalize=True,):
     return train_transform, test_transform
 
 
-class CustomSubset(torch.utils.data.Subset):
+class CustomSubset(torch.utils.data.Dataset):   # Notably, do not inherit from torch.utils.data.Subet!!! Otherwise __getitem__  doesn't work!!
     '''A custom subset class'''
     def __init__(self, dataset, indices, trans=None):
-        super().__init__(dataset, indices)
-        self.targets = dataset.targets  # 保留targets属性
+        self.dataset = dataset
+        self.indices = indices
+        # self.targets = dataset.targets  # 保留targets属性
+        # print(f"self.targets = {self.targets}, len: {len(self.targets)}")
         self.classes = dataset.classes  # 保留classes属性
+        # print(f"self.classes = {self.classes}, len: {len(self.classes)}")
         self.trans = trans
 
     def __getitem__(self, idx):
@@ -232,12 +235,22 @@ class CustomSubset(torch.utils.data.Subset):
     def __len__(self):
         return len(self.indices)
 
+    # @staticmethod
+    # def collate_fn(batch):
+    #     print(f"batch: {batch}")
+    #     x, y = zip(*batch)
+    #     print(f"collate x: {x}, y: {y}")
+    #     return x, y
 
-def get_undersample_subset(dataset, transform):
+
+
+
+def get_undersample_subset(dataset, transf):
     """
     欠采样获取类平衡数据集
     Args:
         dataset (): 原（不平衡）数据集
+        transf ():
 
     Returns (): 类平衡之后的数据集
 
@@ -256,7 +269,7 @@ def get_undersample_subset(dataset, transform):
         balanced_indices.extend(np.random.choice(indices, min_samples, replace=False).tolist())
 
     # 使用CustomSubset创建平衡的数据集子集
-    balanced_dataset = CustomSubset(dataset, balanced_indices, trans=transform)
+    balanced_dataset = CustomSubset(dataset, balanced_indices, transf)
 
     return balanced_dataset
 
@@ -294,6 +307,10 @@ def get_test_dataset(args, **kwargs):
         if kwargs['use_balance']:
             if kwargs['balance_method'] == 'undersampling':
                 testset = get_undersample_subset(datasets.ImageFolder(testdataroot), kwargs['test_transform'])
+
+                # For debug
+                # for j in range(len(testset)):
+                #     print(f"j:{j}, testset[{j}][0] shape: {testset[j][0].shape}")
 
             else:
                 raise NotImplementedError

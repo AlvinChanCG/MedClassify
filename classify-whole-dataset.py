@@ -254,27 +254,28 @@ class ConvNet(nn.Module):
 def train(model, device, train_loader, optimizer, epoch):
     pass
 
-def evaluate_top1(model, device, loader, epoch):
-    model.eval()
-    total_correct_num = 0
-    total_num = 0
-    for batch_idx, (data, target) in enumerate(loader):
-        data, target = data.to(device), target.to(device)
-        output = model(data)
-        # current_batch_acc1, current_batch_correct_num = accuracy(output.data, target, topk=(1, ))
-        # # print(current_batch_correct_num)
-        # total_correct_num += current_batch_correct_num[0]
-        # total_num += data.size(0)
 
-        _, predicted = torch.max(output.data, 1)
-        total_correct_num += (predicted == target).sum().item()
-        total_num += target.size(0)
-
-    print(f"total_correct_num: {total_correct_num}, total_num: {total_num}")
-    acc = 100 * total_correct_num / total_num
-
-
-    return acc
+# def evaluate_top1(model, device, loader, epoch):
+#     model.eval()
+#     total_correct_num = 0
+#     total_num = 0
+#     for batch_idx, (data, target) in enumerate(loader):
+#         data, target = data.to(device), target.to(device)
+#         output = model(data)
+#         # current_batch_acc1, current_batch_correct_num = accuracy(output.data, target, topk=(1, ))
+#         # # print(current_batch_correct_num)
+#         # total_correct_num += current_batch_correct_num[0]
+#         # total_num += data.size(0)
+#
+#         _, predicted = torch.max(output.data, 1)
+#         total_correct_num += (predicted == target).sum().item()
+#         total_num += target.size(0)
+#
+#     print(f"total_correct_num: {total_correct_num}, total_num: {total_num}")
+#     acc = 100 * total_correct_num / total_num
+#
+#
+#     return acc
 
 
 def evaluate_top1(model, device, loader, criterion, epo):
@@ -305,10 +306,6 @@ def evaluate_top1(model, device, loader, criterion, epo):
     cm = confusion_matrix(true_labels, predicted_labels)
 
     return top1, cm
-
-
-
-
 
 
 def soft_accuracy(output, target, topk=(1,)):
@@ -351,7 +348,7 @@ def accuracy(output, target, topk=(1, )):
     return res
 
 
-def collate_fn(batch):
+def custom_collate_fn(batch):
     return cutmix_or_mixup(*default_collate(batch))
 
 
@@ -416,16 +413,16 @@ if __name__=='__main__':
 
     # get loader
     if args.use_mixup:
-        train_loader = DataLoader(traindataset, batch_size=args.train_bs, shuffle=True, num_workers=4, drop_last=False, pin_memory=True, collate_fn=collate_fn)
+        train_loader = DataLoader(traindataset, batch_size=args.train_bs, shuffle=True, num_workers=4, drop_last=False, pin_memory=True, collate_fn=custom_collate_fn)
     else:
         train_loader = DataLoader(traindataset, batch_size=args.train_bs, shuffle=True, num_workers=4, drop_last=False, pin_memory=True)
 
-    test_loader = DataLoader(testdataset, batch_size=args.test_bs, shuffle=False, num_workers=4, drop_last=False, pin_memory=True)
+    test_loader = DataLoader(testdataset, batch_size=args.test_bs, shuffle=False, num_workers=1, drop_last=False, pin_memory=False)
 
     # val_loader = DataLoader(valdataset, batch_size=batchsize, shuffle=False, num_workers=0, drop_last=False, pin_memory=True)
 
 
-
+    # get model
     # model = models.__dict__['ConvNet'](num_classes=nclass, im_size=size, net_width=net_width, kernelsize=kernelsize)
     model = utils.get_model(args)
     model.to(device)
