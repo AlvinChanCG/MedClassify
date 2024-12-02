@@ -3,7 +3,7 @@ CUDA_VISIBLE_DEVICES=3 python classify-whole-dataset.py
 
  --traindataroot  ./datasets/APTOS2019/train --testdataroot ./datasets/APTOS2019/test  --train_bs 8 --test_bs 64  --im_size 256 256  --datachannel 3  --nclasses 5  --model ResNetAP  --net_depth 18  --norm_type batch
 
-CUDA_VISIBLE_DEVICES=3 python classify-whole-dataset.py --traindataroot  ./datasets/APTOS2019/aptosbegin10w-IPC50 --testdataroot ./datasets/APTOS2019/test  --use_balance --balance_method undersampling --train_bs 8 --test_bs 64  --im_size 256 256  --datachannel 3  --nclasses 5  --model ResNetAP  --net_depth 18  --norm_type instance  --epochs 1000  --use_basic_aug  --use_rrc_aug  --rrc_size 224  --use_mixup
+CUDA_VISIBLE_DEVICES=3 python classify-whole-dataset.py --traindataroot  ./datasets/APTOS2019/aptosbegin10w-ipc50_train --testdataroot ./datasets/APTOS2019/test  --use_balance --balance_method undersampling --train_bs 8 --test_bs 64  --im_size 256 256  --datachannel 3  --nclasses 5  --model ResNetAP  --net_depth 18  --norm_type instance  --epochs 1000  --use_basic_aug  --use_rrc_aug  --rrc_size 224  --use_mixup
 """
 import os.path
 import models
@@ -16,7 +16,6 @@ import torch.nn as nn
 import torchinfo
 import argparse
 import utils
-
 
 torch.backends.cudnn.benchmark = True
 
@@ -365,6 +364,8 @@ if __name__=='__main__':
     # dataset balance setting
     parser.add_argument('--use_balance', action='store_true', help='use balanced dataset or not')
     parser.add_argument('--balance_method', type=str, default='None', choices=['None', 'undersampling'])
+    parser.add_argument('--get_balance_by_dynamics', action='store_true', help='get balance by dynamics or static')
+    # parser.add_argument('--balance_testset_root', type=str, default='./datasets/APTOS2019/balance_testset')
     #
     parser.add_argument('--train_bs', type=int, default=8, help='train batch size')
     parser.add_argument('--test_bs', type=int, default=64, help='test batch size')
@@ -386,6 +387,7 @@ if __name__=='__main__':
     parser.add_argument('--use_rrc_aug', action='store_true')
     parser.add_argument('--rrc_size', type=int, default=-1, help="-1 denotes using the same size as im_size")
     parser.add_argument('--use_mixup', action='store_true')
+    #
 
     args = parser.parse_args()
 
@@ -402,7 +404,15 @@ if __name__=='__main__':
 
     # get datasets
     traindataset = utils.get_train_dataset(args, train_transform=train_transform)
-    testdataset = utils.get_test_dataset(args, test_transform=test_transform, use_balance=args.use_balance, balance_method=args.balance_method)
+    if args.use_balance:
+        if args.get_balance_by_dynamics:
+            print(f'Using dynamics balance...')
+            testdataset = utils.get_test_dataset(args, test_transform=test_transform, use_balance=args.use_balance, balance_method=args.balance_method)
+        else:
+            print(f"Using static balance...")
+            args.balance_testset_root = os.path.join(os.path.split(args.testdataroot)[0],
+                                                     f"{args.balance_method}_balance_test")
+            testdataset = datasets.ImageFolder(args.balance_testset_root, transform=test_transform)
     print(f"train dataset size: {len(traindataset)}, test dataset size: {len(testdataset)}")
 
     # mixup aug setting
